@@ -4,11 +4,12 @@
  * Pas de drag & drop HTML5 natif (peu adapté à une grille en position absolue) :
  * on suit le pointeur nous-mêmes.
  *  - appui sur une carte puis déplacement > 5 px → la carte suit la souris ;
- *  - en survolant l'emplacement d'une autre carte, elle prend sa place et la grille
- *    se réorganise en direct (aperçu) ;
- *  - au relâchement, le nouvel ordre est enregistré (store.moveNote).
+ *  - chaque carte appartient à une colonne : la carte tenue va dans la colonne sous
+ *    elle, à la hauteur du pointeur ; seules les colonnes de départ et d'arrivée
+ *    se réorganisent (aperçu en direct), les autres ne bougent pas ;
+ *  - au relâchement : store.placeNote(id, colonne, carte du dessous, carte du dessus).
  * Un simple clic (sans déplacement) ouvre toujours la carte.
- * Fonctionne aussi avec un filtre actif (Notes.dropIndex).
+ * Fonctionne aussi avec un filtre actif (insertion relative aux cartes visibles).
  *
  * Expose : window.Notes.enableGridDrag({ store, ui })
  */
@@ -26,7 +27,7 @@
     var grid = ui.grid;
 
     var press = null;     // { card, id, x0, y0 } entre l'appui et le début du glissement
-    var drag = null;      // { card, id, offX, offY, order, lastSwap }
+    var drag = null;      // { card, id, offX, offY, cols, from, target }
     var lastPointer = null;
     var scrollTimer = null;
 
@@ -56,17 +57,41 @@
     // Fenêtre qui perd le focus en plein glissement → on termine proprement
     global.addEventListener('blur', function () { press = null; if (drag) finish(); });
 
+    /** Colonnes actuelles (hors carte tenue) : [[id, …] de haut en bas] */
+    function columnsWithout(id, slots, n) {
+      var cols = [];
+      for (var c = 0; c < n; c++) cols.push([]);
+      slots.filter(function (s) { return s.id !== id; })
+        .sort(function (a, b) { return a.y - b.y; })
+        .forEach(function (s) { cols[s.col].push(s.id); });
+      return cols;
+    }
+
     function start(p) {
-      var slot = ui.getSlots().filter(function (s) { return s.id === p.id; })[0];
-      if (!slot) return;
+      var slots = ui.getSlots();
+      var slot = slots.filter(function (s) { return s.id === p.id; })[0];
+      var g = ui.getGeometry();
+      if (!slot || !g) return;
       var rect = grid.getBoundingClientRect();
+      var cols = columnsWithout(p.id, slots, g.columns);
+      // Positions de référence (colonnes sans la carte tenue), FIXES pendant le geste :
+      // le point de dépôt ne « fuit » pas quand l'aperçu fait descendre les cartes.
+      var hOf = {};
+      slots.forEach(function (s) { hOf[s.id] = s.h; });
+      var base = cols.map(function (list) {
+        var y = 0;
+        return list.map(function (id) { var r = { y: y, h: hOf[id] }; y += hOf[id] + g.gap; return r; });
+      });
+      var srcIdx = slots.filter(function (s) { return s.col === slot.col && s.id !== p.id && s.y < slot.y; }).length;
       drag = {
         card: p.card,
         id: p.id,
         offX: p.x0 - rect.left - slot.x,   // où la carte a été saisie
         offY: p.y0 - rect.top - slot.y,
-        order: ui.visibleIds(),
-        lastSwap: null
+        cols: cols,                         // colonnes sans la carte tenue (fixes pendant le geste)
+        base: base,
+        from: { col: slot.col, idx: srcIdx },
+        target: { col: slot.col, idx: srcIdx }
       };
       p.card.classList.add('dragging');
       document.body.classList.add('is-dragging');
@@ -75,30 +100,31 @@
       scrollTimer = setInterval(autoScroll, 16);
     }
 
+    /** Aperçu : la carte tenue réserve sa place dans (col, idx) ; seules les colonnes
+        de départ et d'arrivée se réorganisent. */
+    function preview() {
+      var order = [], cols = {};
+      drag.cols.forEach(function (list, c) {
+        var l = list.slice();
+        if (c === drag.target.col) l.splice(drag.target.idx, 0, drag.id);
+        l.forEach(function (id) { order.push(id); cols[id] = c; });
+      });
+      ui.layout(order, drag.id, cols);
+    }
+
     function update() {
       var rect = grid.getBoundingClientRect();
       var x = lastPointer.x - rect.left;
       var y = lastPointer.y - rect.top;
       drag.card.style.transform = 'translate(' + (x - drag.offX) + 'px,' + (y - drag.offY) + 'px)';
 
-      // Emplacement survolé (hors carte tenue)
-      var slots = ui.getSlots();
-      var others = slots.filter(function (s) { return s.id !== drag.id; });
-      var hit = Notes.slotAt(others, x, y, ui.cardWidth());
-      var target = hit === -1 ? null : others[hit].id;
-
-      // Anti-oscillation : après un échange, la grille bouge sous la souris ; on ignore la
-      // carte échangée tant que le pointeur ne l'a pas quittée.
-      if (target !== drag.lastSwap) drag.lastSwap = null;
-      if (target && drag.lastSwap === null) {
-        var from = drag.order.indexOf(drag.id);
-        var at = drag.order.indexOf(target);
-        var order = drag.order.filter(function (id) { return id !== drag.id; });
-        // Vers l'arrière de la liste : après la cible ; vers l'avant : à sa place
-        order.splice(order.indexOf(target) + (from < at ? 1 : 0), 0, drag.id);
-        drag.order = order;
-        drag.lastSwap = target;
-        ui.layout(drag.order, drag.id);
+      // Colonne sous le centre de la carte tenue, position selon le pointeur
+      var g = ui.getGeometry();
+      var col = Notes.columnAt(x - drag.offX + g.cardWidth / 2, g);
+      var idx = Notes.insertIndex(drag.base[col], y);
+      if (col !== drag.target.col || idx !== drag.target.idx) {
+        drag.target = { col: col, idx: idx };
+        preview();
       }
     }
 
@@ -118,14 +144,10 @@
       document.body.classList.remove('is-dragging');
       ui.suppressNextClick(); // le relâchement ne doit pas ouvrir la carte
 
-      var before = ui.visibleIds();
-      var changed = before.join() !== d.order.join();
-      if (changed) {
-        var all = store.getNotes().map(function (n) { return n.id; });
-        store.moveNote(d.id, Notes.dropIndex(all, d.order, d.id)); // → re-rendu via onChange
-      } else {
-        ui.layout(); // retour à sa place
-      }
+      var t = d.target;
+      if (t.col === d.from.col && t.idx === d.from.idx) { ui.layout(); return; }  // reposée à sa place
+      var list = d.cols[t.col];
+      store.placeNote(d.id, t.col, list[t.idx] || null, list[t.idx - 1] || null); // → re-rendu via onChange
     }
 
     return { isDragging: function () { return drag !== null; } };

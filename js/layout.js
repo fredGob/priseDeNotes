@@ -51,6 +51,57 @@
   }
 
   /**
+   * Placement par colonnes mémorisées : chaque carte reste dans SA colonne (`col`),
+   * empilée dans l'ordre de la liste. Une carte sans colonne valide (pas encore placée,
+   * ou colonne qui n'existe plus parce que la fenêtre a rétréci) va dans la plus courte.
+   * @param {{col:(number|undefined), h:number}[]} cards  dans l'ordre global
+   * @returns {{columns, positions, cols, width, height, offsetX}}  cols : colonne retenue
+   */
+  function columnLayout(cards, options) {
+    var cw = options.cardWidth;
+    var gap = options.gap;
+    var columns = Math.max(1, Math.floor((options.containerWidth + gap) / (cw + gap)));
+    var gridWidth = columns * cw + (columns - 1) * gap;
+    var offsetX = Math.max(0, (options.containerWidth - gridWidth) / 2);
+    var colHeights = [];
+    for (var c = 0; c < columns; c++) colHeights.push(0);
+
+    var cols = [];
+    var positions = cards.map(function (card) {
+      var col = card.col;
+      if (!(Number.isInteger(col) && col >= 0 && col < columns)) {
+        col = 0;
+        for (var i = 1; i < columns; i++) if (colHeights[i] < colHeights[col]) col = i;
+      }
+      cols.push(col);
+      var pos = { x: offsetX + col * (cw + gap), y: colHeights[col] };
+      colHeights[col] += card.h + gap;
+      return pos;
+    });
+    var maxH = Math.max.apply(null, colHeights);
+    return {
+      columns: columns, positions: positions, cols: cols, width: gridWidth, offsetX: offsetX,
+      height: cards.length ? maxH - gap : 0
+    };
+  }
+
+  /** Colonne sous l'abscisse x (bornée aux colonnes existantes). */
+  function columnAt(x, geo) {
+    var c = Math.floor((x - geo.offsetX + geo.gap / 2) / (geo.cardWidth + geo.gap));
+    return Math.max(0, Math.min(geo.columns - 1, c));
+  }
+
+  /**
+   * Position d'insertion dans une colonne : nombre de cartes dont le milieu est
+   * au-dessus du pointeur. @param {{y:number,h:number}[]} colSlots  de haut en bas
+   */
+  function insertIndex(colSlots, y) {
+    var n = 0;
+    colSlots.forEach(function (s) { if (s.y + s.h / 2 < y) n += 1; });
+    return n;
+  }
+
+  /**
    * Index de l'emplacement sous le point (x, y), ou -1.
    * @param {{x:number,y:number,h:number}[]} slots
    * @param {number} cardWidth
@@ -64,5 +115,8 @@
   }
 
   Notes.masonry = masonry;
+  Notes.columnLayout = columnLayout;
+  Notes.columnAt = columnAt;
+  Notes.insertIndex = insertIndex;
   Notes.slotAt = slotAt;
 })(window);

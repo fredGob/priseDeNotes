@@ -868,6 +868,57 @@
       eq(s.getNotes().map(function (n) { return n.title; }), ['b', 'c', 'a']);
     });
 
+    test('colonnes mémorisées : chaque carte reste dans sa colonne', function () {
+      var opt = { containerWidth: 1000, cardWidth: 240, gap: 16 };   // 3 colonnes, décalage 124
+      var r = Notes.columnLayout([{ col: 2, h: 100 }, { col: 2, h: 50 }, { col: 0, h: 80 }], opt);
+      eq(r.cols, [2, 2, 0]);
+      eq(r.positions, [{ x: 636, y: 0 }, { x: 636, y: 116 }, { x: 124, y: 0 }]);
+    });
+
+    test('colonnes : carte sans colonne (ou colonne disparue) → la plus courte', function () {
+      var opt = { containerWidth: 1000, cardWidth: 240, gap: 16 };
+      var r = Notes.columnLayout([{ col: 0, h: 300 }, { h: 50 }, { col: 7, h: 50 }, {}].map(function (c) {
+        return { col: c.col, h: c.h || 10 }; }), opt);
+      eq(r.cols, [0, 1, 2, 1]);
+    });
+
+    test('columnAt et insertIndex', function () {
+      var g = { columns: 3, offsetX: 124, cardWidth: 240, gap: 16 };
+      eq([Notes.columnAt(130, g), Notes.columnAt(500, g), Notes.columnAt(2000, g), Notes.columnAt(-50, g)], [0, 1, 2, 0]);
+      var col = [{ y: 0, h: 100 }, { y: 116, h: 60 }];
+      eq([Notes.insertIndex(col, 10), Notes.insertIndex(col, 60), Notes.insertIndex(col, 150), Notes.insertIndex(col, 999)], [0, 1, 2, 2]);
+    });
+
+    test('placeNote : sous une carte d\'une autre colonne, les autres colonnes intactes', function () {
+      var s = makeStore();
+      var ids = {};
+      // colonnes : 0 = [A, D], 1 = [B], 2 = [C, E]   (ordre global A B C D E)
+      [['E', 2], ['D', 0], ['C', 2], ['B', 1], ['A', 0]].forEach(function (x) { ids[x[0]] = s.addNote({ title: x[0], col: x[1] }).id; });
+      s.placeNote(ids.A, 2, ids.E, ids.C);                     // A entre C et E
+      function column(c) { return s.getNotes().filter(function (n) { return n.col === c; }).map(function (n) { return n.title; }).join(''); }
+      eq([column(0), column(1), column(2)], ['D', 'B', 'CAE']);
+      s.placeNote(ids.B, 0, null, ids.D);                      // B tout en bas de la colonne 0
+      eq([column(0), column(1)], ['DB', '']);
+      s.placeNote(ids.D, 1, null, null);                       // colonne vide
+      eq([column(0), column(1)], ['B', 'D']);
+      throws(function () { s.placeNote(ids.A, -1); }, 'Colonne invalide');
+    });
+
+    test('setColumns n\'enregistre que les vrais changements ; nouvelle note dans sa colonne', function () {
+      var s = makeStore();
+      var a = s.addNote({ title: 'a' });
+      eq(a.col, undefined);
+      var calls = 0; s.onChange(function () { calls += 1; });
+      eq(s.setColumns({}), false);
+      eq(s.setColumns((function () { var m = {}; m[a.id] = 2; return m; })()), true);
+      eq(s.setColumns((function () { var m = {}; m[a.id] = 2; return m; })()), false);
+      eq(calls, 1);
+      eq(s.addNote({ col: 1 }).col, 1);
+      throws(function () { s.addNote({ col: -2 }); }, 'Colonne invalide');
+      var d = s.exportData(); eq(Notes.validateBackup(d).notes.map(function (n) { return n.col; }), [1, 2]);
+      d.notes[0].col = 'x'; eq(Notes.validateBackup(d).ok, false);
+    });
+
     test('slotAt : emplacement sous le pointeur', function () {
       var slots = [{ x: 0, y: 0, h: 100 }, { x: 256, y: 0, h: 50 }, { x: 0, y: 116, h: 80 }];
       eq(Notes.slotAt(slots, 10, 10, 240), 0);

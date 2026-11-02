@@ -59,6 +59,7 @@ Appli de prise de notes personnelle, utilisée sur un **poste de travail d'entre
       "color": "blue",
       "tags": ["boulot"],
       "order": 0,
+      "col": 1,
       "items": [
         { "id": "i_a1", "type": "text", "text": "Livraison V1" },
         { "id": "i_a2", "type": "task", "text": "Relire la spec", "done": false },
@@ -72,6 +73,7 @@ Appli de prise de notes personnelle, utilisée sur un **poste de travail d'entre
 }
 ```
 - Couleurs autorisées : `default`, `yellow`, `green`, `blue`, `pink`, `purple`, `grey`.
+- `col` : colonne d'affichage (entier ≥ 0, optionnel). `order` : ordre dans la colonne.
 - Dates `start`, `due`, `doneAt` : `AAAA-MM-JJ` (date locale du PC). `days` : entier 1 → 365.
 - Clé `localStorage` : `notes-app-v1`.
 
@@ -105,8 +107,13 @@ notes-app/
 - Mise en page : `.layout` en flex, grille `flex: 1` (~80 %), panneau `flex: 0 0 20%`
   (min 270 px, max 400 px), fond gris `#e8eaed` (tâches en cartes blanches), collé sous la barre du haut.
 - Grille type Keep : cartes de largeur fixe (290 px en taille « Moyen »), hauteur libre.
-- Placement calculé en JS (`layout.js`) et non en colonnes CSS : chaque carte va dans la
-  colonne la moins haute → l'ordre se lit de gauche à droite (indispensable au glisser-déposer).
+- **Colonnes mémorisées** (`Notes.columnLayout`) : chaque note a un champ `col` ; elle reste
+  dans sa colonne, empilée selon `order` (l'ordre ne compte qu'à l'intérieur d'une colonne).
+  Note sans `col` valide (anciennes données, ou colonne disparue quand la fenêtre rétrécit)
+  → colonne la plus courte. Au premier affichage sans filtre, les colonnes affichées des notes
+  sans `col` sont mémorisées (`store.setColumns`) → la disposition ne saute pas.
+  Une colonne disparue n'est jamais réécrite : en ré-élargissant, la carte y revient.
+- Nouvelle note : en haut de la colonne la plus courte (`ui.shortestColumn()` → `addNote({ col })`).
 - Cartes en `position: absolute` + `transform`. À chaque re-rendu, une carte repart de sa
   position précédente → seuls les vrais déplacements sont animés.
 - Grille + panneau redessinés ensemble, au plus 1 fois par frame, à chaque `onChange`.
@@ -160,10 +167,13 @@ notes-app/
 - Filtre et recherche s'appliquent à la grille ; le panneau des tâches reste global.
 
 ## Glisser-déposer
-- Cartes (`drag.js`) : suivi du pointeur (pas de DnD HTML5), seuil 5 px, aperçu en direct
-  (`ui.layout(order, draggingId)`), anti-oscillation, défilement auto près des bords,
-  enregistrement au relâchement via `Notes.dropIndex` (compatible filtre actif).
-  Un clic sans déplacement ouvre toujours la carte.
+- Cartes (`drag.js`) : suivi du pointeur (pas de DnD HTML5), seuil 5 px. Colonne cible =
+  colonne sous le centre de la carte tenue (`Notes.columnAt`) ; position = selon le pointeur,
+  comparée aux positions **figées au début du geste** (`drag.base`, `Notes.insertIndex`) →
+  pas de point de dépôt qui fuit. Aperçu en direct (`ui.layout(order, draggingId, cols)`) :
+  seules les colonnes de départ et d'arrivée bougent. Relâchement →
+  `store.placeNote(id, col, carteDessous, carteDessus)` (compatible filtre actif).
+  Un clic sans déplacement ouvre toujours la carte ; reposée à sa place → rien ne change.
 - Lignes d'une carte (modal) : poignée ⋮⋮ au survol, déplacement DOM en direct, écoute sur
   `document` (pas de `setPointerCapture` : déplacer le nœud ferait perdre la capture).
   Clavier : Alt + ↑ / ↓.
@@ -224,7 +234,9 @@ suivante avant validation.
 | `load()` | Charge les données. Si corrompues : copie de secours sous `notes-app-v1-corrompu-<date>`, renvoie `{ ok: false, backupKey }` |
 | `onChange(fn)` | Appelé après chaque modification ; renvoie une fonction de désabonnement |
 | `getNotes()` / `getNote(id)` | Lecture (copies), notes triées par `order` |
-| `addNote({title, color, tags})` | Nouvelle note **en tête** de grille |
+| `addNote({title, color, tags, col?})` | Nouvelle note **en tête** (de sa colonne) |
+| `placeNote(id, col, beforeId, afterId)` | Glisser-déposer : colonne + position (avant la carte du dessous / après celle du dessus) |
+| `setColumns({ id: col })` | Mémorise des colonnes, n'enregistre que les vrais changements |
 | `updateNote(id, {title?, color?, tags?})` | Autres champs refusés |
 | `deleteNote(id)` → `{ note, index }` / `restoreNote(snapshot)` | Suppression annulable |
 | `setArchived(id, bool)` | Archivage (garde sa place dans l'ordre) |
@@ -247,7 +259,8 @@ suivante avant validation.
 | `snoozeReminder()` / `getReminderSnooze()` | Report du rappel au lendemain |
 
 Fonctions statiques : `Notes.filterNotes(notes, { tag, query })`, `Notes.dropIndex(allIds, visibleIds, id)`,
-`Notes.slotAt(slots, x, y, cardWidth)` (layout.js), `Notes.validateBackup(data)` → `{ ok, errors, notes, count, exportedAt }` ;
+`Notes.slotAt(slots, x, y, cardWidth)`, `Notes.columnLayout(cards, opts)`, `Notes.columnAt(x, geo)`,
+`Notes.insertIndex(colSlots, y)` (layout.js), `Notes.validateBackup(data)` → `{ ok, errors, notes, count, exportedAt }` ;
 `Notes.backupReminder({ noteCount, lastExport, snoozedOn, today, threshold })` → `{ show, days }`.
 
 Toute erreur (id inconnu, couleur invalide, délai invalide…) lève une `Error` avec un message en français.
@@ -274,4 +287,4 @@ Toute erreur (id inconnu, couleur invalide, délai invalide…) lève une `Error
 - [x] Encart heure / date / semaine / éphéméride
 - [x] Sauvegarde automatique dans un fichier (prêt pour Google Drive pour ordinateur)
 
-Tests : 100 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).
+Tests : 105 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).

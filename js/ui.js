@@ -132,7 +132,9 @@
     var pending = false;
     var renderPending = false;
     var filter = { tag: null, query: '', archived: false };
-    var slots = [];            // dernier placement : [{ id, x, y, h }]
+    var slots = [];            // dernier placement : [{ id, x, y, h, col }]
+    var colOf = {};            // colonne mémorisée de chaque carte affichée
+    var geo = null;            // géométrie du dernier placement (colonnes, décalage…)
     var suppressClick = false; // posé par drag.js juste après un glisser-déposer
 
     // Délégation d'événements : un seul écouteur pour toute la grille.
@@ -167,24 +169,25 @@
     }
 
     /**
-     * Positionne les cartes.
+     * Positionne les cartes, chacune dans sa colonne mémorisée.
      * @param {string[]} [order]       ordre à appliquer (aperçu pendant un glisser-déposer)
      * @param {string}   [draggingId]  carte tenue à la souris : sa place est réservée mais
      *                                 elle n'est pas déplacée (elle suit le pointeur)
+     * @param {Object}   [cols]        colonnes à utiliser { id: col } (aperçu)
      */
-    function layout(order, draggingId) {
+    function layout(order, draggingId, cols) {
       var map = cardsById();
       var ids = order || visibleIds();
       var heights = ids.map(function (id) { return map[id].offsetHeight; });
-      var res = Notes.masonry(heights, {
-        containerWidth: grid.clientWidth,
-        cardWidth: cardWidth(),
-        gap: GAP
-      });
+      var cw = cardWidth();
+      var res = Notes.columnLayout(ids.map(function (id, i) {
+        return { col: cols ? cols[id] : colOf[id], h: heights[i] };
+      }), { containerWidth: grid.clientWidth, cardWidth: cw, gap: GAP });
+      geo = { columns: res.columns, offsetX: res.offsetX, cardWidth: cw, gap: GAP };
       slots = ids.map(function (id, i) {
         var p = res.positions[i];
         if (id !== draggingId) map[id].style.transform = 'translate(' + p.x + 'px,' + p.y + 'px)';
-        return { id: id, x: p.x, y: p.y, h: heights[i] };
+        return { id: id, x: p.x, y: p.y, h: heights[i], col: res.cols[i] };
       });
       grid.style.height = res.height + 'px';
 
@@ -275,7 +278,9 @@
       Array.prototype.forEach.call(grid.children, function (c) { prev[c.dataset.id] = c.style.transform; });
 
       grid.textContent = '';
+      colOf = {};
       visible.forEach(function (n) {
+        colOf[n.id] = n.col;
         var card = renderCard(n, today);
         if (prev[n.id]) card.style.transform = prev[n.id];
         else card.classList.add('no-anim'); // nouvelle carte : apparaît directement à sa place
@@ -294,6 +299,15 @@
       emptyState.hidden = visible.length > 0;
 
       layout();
+
+      // Notes jamais placées (données d'avant les colonnes) : on mémorise la colonne où elles
+      // s'affichent → la disposition ne bouge pas, et le glisser-déposer devient précis.
+      // Seulement sans filtre ni recherche, pour figer la vraie disposition complète.
+      if (!filter.tag && !filter.query) {
+        var fix = {};
+        slots.forEach(function (s) { if (!Number.isInteger(colOf[s.id])) fix[s.id] = s.col; });
+        if (Object.keys(fix).length) store.setColumns(fix);
+      }
       requestAnimationFrame(function () {
         Array.prototype.forEach.call(grid.querySelectorAll('.no-anim'), function (c) {
           c.classList.remove('no-anim');
@@ -319,6 +333,17 @@
       showArchives: showArchives,
       visibleIds: visibleIds,
       getSlots: function () { return slots.slice(); },
+      getGeometry: function () { return geo; },
+      /** Colonne la moins haute (à égalité : la plus à gauche) → accueille une nouvelle note. */
+      shortestColumn: function () {
+        if (!geo) return 0;
+        var h = [];
+        for (var c = 0; c < geo.columns; c++) h.push(0);
+        slots.forEach(function (s) { h[s.col] = Math.max(h[s.col], s.y + s.h); });
+        var best = 0;
+        for (var i = 1; i < h.length; i++) if (h[i] < h[best]) best = i;
+        return best;
+      },
       suppressNextClick: function () { suppressClick = true; setTimeout(function () { suppressClick = false; }, 0); },
       grid: grid,
       cardWidth: cardWidth,

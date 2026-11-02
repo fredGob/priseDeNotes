@@ -187,7 +187,7 @@
 
     document.getElementById('btn-new-note').addEventListener('click', function () {
       if (ui.getFilter().archived) ui.showArchives(false); // une nouvelle note n'est jamais archivée
-      var note = store.addNote();
+      var note = store.addNote({ col: ui.shortestColumn() });
       editor.open(note.id);
     });
 

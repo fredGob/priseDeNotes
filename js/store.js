@@ -185,7 +185,7 @@
       return clone(findNote(noteId));
     }
 
-    /** Crée une note, placée en tête de grille (comme Keep). */
+    /** Crée une note, placée en tête (de sa colonne si `col` est donné). */
     function addNote(fields) {
       fields = fields || {};
       var ts = now();
@@ -200,6 +200,11 @@
         createdAt: ts,
         updatedAt: ts
       };
+      // Colonne d'affichage (choisie par l'interface : la plus courte). Absente → placement auto.
+      if (fields.col !== undefined) {
+        if (!Number.isInteger(fields.col) || fields.col < 0) throw new Error('Colonne invalide : ' + fields.col);
+        note.col = fields.col;
+      }
       state.notes.push(note);
       renumber();
       save();
@@ -243,6 +248,40 @@
       state.notes.forEach(function (x, i) { x.order = i; });
       save();
       return clone(n);
+    }
+
+    /**
+     * Dépose une note dans une colonne, juste avant `beforeId` (la carte qui sera
+     * dessous) ou juste après `afterId` (celle du dessus). Les autres colonnes ne
+     * bougent pas : l'ordre ne compte qu'à l'intérieur d'une colonne.
+     */
+    function placeNote(noteId, col, beforeId, afterId) {
+      if (!Number.isInteger(col) || col < 0) throw new Error('Colonne invalide : ' + col);
+      var note = findNote(noteId);
+      if (beforeId) findNote(beforeId);
+      if (afterId) findNote(afterId);
+      note.col = col;
+      state.notes.splice(state.notes.indexOf(note), 1);
+      var at = state.notes.length;                                   // colonne vide : en fin de liste
+      if (beforeId) at = state.notes.indexOf(findNote(beforeId));
+      else if (afterId) at = state.notes.indexOf(findNote(afterId)) + 1;
+      state.notes.splice(at, 0, note);
+      state.notes.forEach(function (n, i) { n.order = i; });
+      save();
+    }
+
+    /**
+     * Mémorise la colonne de plusieurs notes { id: col } (sans changer l'ordre).
+     * N'enregistre que s'il y a un vrai changement.
+     */
+    function setColumns(map) {
+      var changed = false;
+      Object.keys(map).forEach(function (id) {
+        var n = state.notes.filter(function (x) { return x.id === id; })[0];
+        if (n && n.col !== map[id] && Number.isInteger(map[id]) && map[id] >= 0) { n.col = map[id]; changed = true; }
+      });
+      if (changed) save();
+      return changed;
     }
 
     /** Archive / désarchive une note (elle garde sa place dans l'ordre). */
@@ -495,6 +534,8 @@
       deleteNote: deleteNote,
       restoreNote: restoreNote,
       setArchived: setArchived,
+      placeNote: placeNote,
+      setColumns: setColumns,
       moveNote: moveNote,
       addItem: addItem,
       updateItem: updateItem,
@@ -543,6 +584,7 @@
       if (COLORS.indexOf(n.color) === -1) err(where + ' : couleur inconnue (' + n.color + ').');
       if (!Array.isArray(n.tags) || !n.tags.every(isStr)) err(where + ' : étiquettes invalides.');
       if (n.archived !== undefined && typeof n.archived !== 'boolean') err(where + ' : état archivé invalide.');
+      if (n.col !== undefined && !(Number.isInteger(n.col) && n.col >= 0)) err(where + ' : colonne invalide.');
       if (!Array.isArray(n.items)) { err(where + ' : liste d\'éléments manquante.'); return null; }
 
       n.items.forEach(function (it, j) {
@@ -573,6 +615,10 @@
         createdAt: isStr(n.createdAt) ? n.createdAt : '',
         updatedAt: isStr(n.updatedAt) ? n.updatedAt : ''
       };
+    }).map(function (n, i) {
+      var src = data.notes[i];
+      if (n && src && Number.isInteger(src.col)) n.col = src.col;
+      return n;
     });
 
     if (errors.length) return { ok: false, errors: errors, notes: [], count: 0, exportedAt: null };
