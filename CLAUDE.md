@@ -103,8 +103,8 @@ notes-app/
 
 ## Affichage
 - Mise en page : `.layout` en flex, grille `flex: 1` (~80 %), panneau `flex: 0 0 20%`
-  (min 270 px, max 400 px), collé sous la barre du haut, défilement propre.
-- Grille type Keep : cartes de largeur fixe (240 px), hauteur libre.
+  (min 270 px, max 400 px), fond gris `#e8eaed` (tâches en cartes blanches), collé sous la barre du haut.
+- Grille type Keep : cartes de largeur fixe (290 px en taille « Moyen »), hauteur libre.
 - Placement calculé en JS (`layout.js`) et non en colonnes CSS : chaque carte va dans la
   colonne la moins haute → l'ordre se lit de gauche à droite (indispensable au glisser-déposer).
 - Cartes en `position: absolute` + `transform`. À chaque re-rendu, une carte repart de sa
@@ -134,7 +134,7 @@ notes-app/
 - Couleur : rangée de 7 pastilles en bas du modal (style Keep), appliquée immédiatement.
 
 ## Taille des stickers
-- Menu ⋮ → Petit / Moyen / Grand (`--card-w` 200 / 240 / 300 px, `--card-fs` 13 / 14 / 16,5 px),
+- Menu ⋮ → Petit / Moyen / Grand (`--card-w` 240 / 290 / 360 px, `--card-fs` 14,5 / 16 / 18,5 px),
   posé via `body[data-card-size]`. Les dimensions internes des cartes sont en `em` → tout
   suit la taille. `ui.cardWidth()` lit `--card-w` pour le placement (plus de largeur en dur).
 - Mémorisé dans `notes-app-v1-taille` (`store.getCardSize/setCardSize`), non inclus dans
