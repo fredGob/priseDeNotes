@@ -645,6 +645,33 @@
     });
   });
 
+  group('Sauvegarde automatique : décision à l\'ouverture d\'un fichier', function () {
+    var P = Notes.fileSyncPlan;
+    var backup = JSON.stringify({ app: 'notes-app', version: 1, notes: [
+      { id: 'n1', title: 'A', color: 'default', tags: [], items: [] },
+      { id: 'n2', title: 'B', color: 'blue', tags: ['x'], items: [] }] });
+
+    test('fichier vide → on y écrira les notes actuelles', function () {
+      eq(P('', 5).action, 'empty');
+      eq(P('  \n', 0).action, 'empty');
+    });
+
+    test('fichier illisible ou qui n\'est pas une sauvegarde → refus', function () {
+      eq(P('pas du json', 0).action, 'invalid');
+      eq(P('{"foo": 1}', 0).action, 'invalid');
+      var r = P(JSON.stringify({ notes: [{ id: 'x', title: 'T', color: 'orange', tags: [], items: [] }] }), 0);
+      eq(r.action, 'invalid');
+      assert(r.errors[0].indexOf('couleur inconnue') > -1);
+    });
+
+    test('appli vide → chargement direct ; appli non vide → confirmation', function () {
+      var a = P(backup, 0);
+      eq([a.action, a.count], ['load', 2]);
+      assert(a.data && a.data.notes.length === 2);
+      eq(P(backup, 3).action, 'confirm');
+    });
+  });
+
   group('Sauvegarde : export / import', function () {
     function filled(storage) {
       var s = makeStore(storage);

@@ -90,12 +90,13 @@ notes-app/
   js/backup.js      # menu ⋮, export / import JSON, confirmation, rappel de sauvegarde
   js/ephemeris.js   # logique pure : semaine ISO, fête du jour, soleil, jours particuliers
   js/clock.js       # encart date / heure / éphéméride
+  js/filesync.js    # sauvegarde automatique dans un fichier (File System Access API)
   js/app.js         # initialisation, liaison store <-> vues
   LISEZMOI.md       # guide d'utilisation
   tests/tests.html  # tests unitaires, ouverts dans le navigateur
   tests/tests.js
 ```
-- Ordre de chargement : `workdays` → `store` → `ephemeris` → `layout` → `ui` → `drag` → `editor` → `panel` → `backup` → `clock` → `app`.
+- Ordre de chargement : `workdays` → `store` → `ephemeris` → `layout` → `ui` → `drag` → `editor` → `panel` → `backup` → `clock` → `filesync` → `app`.
 - Les modules « logique pure » ne touchent jamais au DOM → testables seuls.
 - Les vues ne modifient jamais les données directement → passent toujours par `store.js`.
 - Jamais de texte utilisateur via `innerHTML` → `textContent` uniquement.
@@ -184,6 +185,24 @@ notes-app/
 - Clés `localStorage` annexes : `notes-app-v1-derniere-sauvegarde`, `notes-app-v1-rappel-reporte`,
   `notes-app-v1-avant-import`.
 
+## Sauvegarde automatique dans un fichier (`filesync.js`)
+- Usage sur **un seul PC**. Fichier choisi par l'utilisateur via `showSaveFilePicker` (« Créer ») ou
+  `showOpenFilePicker` (« Ouvrir un fichier existant », restauration). Typiquement un dossier
+  Google Drive pour ordinateur (G:) → synchronisation avec le compte Google faite par Drive,
+  l'appli reste 100 % hors ligne (écriture disque uniquement, CSP inchangée).
+- Handle mémorisé dans IndexedDB (base `notes-app`, magasin `fichiers`, clé `sauvegarde`).
+- Écriture ~1 s après la dernière modification (`store.onChange`), jamais deux écritures en même
+  temps (`writing` / `again`), tentative finale sur `pagehide`. Chaque écriture réussie appelle
+  `store.markExported()` → le rappel d'export disparaît.
+- États : `off` / `active` / `paused` (autorisation à redonner : bouton « Reprendre », doit venir
+  d'un clic) / `error` (bandeau + « Réessayer »). Indicateur `#autosave-status` dans la barre du haut.
+- Au démarrage : si l'appli est vide et que le fichier mémorisé contient des notes → rechargement auto.
+- « Ouvrir » : `Notes.fileSyncPlan(text, nbNotes)` → `empty` / `invalid` / `load` / `confirm`
+  (confirmation + « Annuler le chargement » via `undoImport`).
+- Tests : `fileSyncPlan` en unitaire ; parcours complet avec fichiers simulés via
+  `window.__notesTestHandleStore` (point d'injection réservé aux tests). Le vrai sélecteur de
+  fichiers Windows ne peut pas être piloté par les tests automatisés → valider sur le poste.
+
 ## Méthode
 Développement **brique par brique**. Une brique n'est validée que lorsque ses tests passent
 (`tests/tests.html` affiche vert/rouge, sans outil externe). Ne pas commencer la brique
@@ -253,5 +272,6 @@ Toute erreur (id inconnu, couleur invalide, délai invalide…) lève une `Error
 - [x] Hors ligne garanti (CSP) + test automatique réseau coupé : 0 tentative de connexion
 - [x] Réglage de taille des stickers (Petit / Moyen / Grand)
 - [x] Encart heure / date / semaine / éphéméride
+- [x] Sauvegarde automatique dans un fichier (prêt pour Google Drive pour ordinateur)
 
-Tests : 97 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).
+Tests : 100 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).

@@ -844,3 +844,26 @@ body.is-dragging { user-select: none; cursor: grabbing; }
 .clock-special { font-weight: 600; color: var(--accent); }
 .clock-sun { font-variant-numeric: tabular-nums; }
 .clock-delta { color: var(--muted); }
+
+/* ------------------------------------------------------------ sauvegarde automatique */
+.autosave-status {
+  font-size: .8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.autosave-status[hidden] { display: none; }
+.autosave-status.error { color: #c5221f; font-weight: 600; }
+.autosave-resume {
+  padding: .3rem .7rem;
+  font: inherit;
+  font-weight: 600;
+  color: #b06000;
+  background: #feefc3;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.autosave-resume:hover { filter: brightness(.97); }
+.menu-note { padding: 0 0 .35rem; font-size: .82rem; color: #3c4043; overflow-wrap: anywhere; }
+#autosave-section .menu-item { padding-left: 0; padding-right: 0; }
+.menu-item-muted { color: var(--muted); }

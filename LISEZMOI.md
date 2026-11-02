@@ -80,7 +80,22 @@ Les tâches terminées sont rangées dans « Terminées » (repliable) en bas de
 - Bouton **Archives** (à droite de la barre des étiquettes) → vue des notes archivées ;
   « ← Notes » pour revenir. Dans une note archivée, « Désarchiver » la remet dans la grille.
 
-## Sauvegarde
+## Sauvegarde automatique dans un fichier (recommandé)
+Menu **⋮** → *Sauvegarde automatique dans un fichier* :
+- **Créer un fichier de sauvegarde…** : choisis où l'enregistrer (ex. `Documents\Notes\notes.json`,
+  ou plus tard `G:\Mon Drive\Notes\notes.json` avec Google Drive pour ordinateur, qui le
+  synchronisera alors avec ton compte Google). L'appli y écrit ensuite **toute seule**, environ une seconde
+  après chaque modification. L'indicateur en haut à droite affiche « Enregistré 09:42 ».
+- **Ouvrir un fichier existant…** : pour **restaurer** tes notes (ex. après une réinitialisation
+  d'Edge). L'appli charge le fichier puis continue d'y enregistrer.
+- Si Edge redemande l'autorisation (nouvelle session), l'indicateur passe à
+  **« Sauvegarde en pause · Reprendre »** : un clic et tout est rattrapé. Pour ne plus avoir à le
+  faire, choisis **« Autoriser à chaque visite »** quand Edge pose la question, si cette option est proposée.
+- Si les notes du navigateur disparaissent mais qu'Edge se souvient du fichier, elles sont
+  rechargées automatiquement au démarrage.
+- *Arrêter la sauvegarde automatique* ne supprime pas le fichier.
+
+## Export / import manuel
 Menu **⋮** en haut à droite :
 - **Exporter les notes (JSON)** → fichier `notes-sauvegarde-AAAA-MM-JJ.json`.
   Range-le hors du navigateur (dossier réseau, OneDrive…).

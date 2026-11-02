@@ -17,12 +17,14 @@
       <input id="search" type="search" placeholder="Rechercher  ( / )" aria-label="Rechercher dans les notes" autocomplete="off">
     </div>
     <button id="btn-new-note" class="btn-primary" type="button">+ Nouvelle note</button>
+    <span id="autosave-status" class="autosave-status" hidden></span>
     <div class="menu-wrap">
       <button id="btn-menu" class="btn-icon" type="button" title="Plus d'options"
               aria-label="Plus d'options" aria-haspopup="menu" aria-expanded="false">⋮</button>
       <div id="menu" class="menu" role="menu" hidden>
         <button type="button" class="menu-item" role="menuitem" data-action="export">Exporter les notes (JSON)</button>
         <button type="button" class="menu-item" role="menuitem" data-action="import">Importer une sauvegarde…</button>
+        <div id="autosave-section" class="menu-section"></div>
         <div class="menu-section">
           <div class="menu-label" id="size-label">Taille des stickers</div>
           <div class="size-picker" role="radiogroup" aria-labelledby="size-label">
@@ -72,6 +74,7 @@
   <script src="js/panel.js"></script>
   <script src="js/backup.js"></script>
   <script src="js/clock.js"></script>
+  <script src="js/filesync.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

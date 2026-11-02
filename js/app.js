@@ -151,6 +151,12 @@
 
     var backup = Notes.createBackup({ store: store, showBanner: showBanner });
     var clock = Notes.createClock({ root: document.getElementById('clock') });
+    var fileSync = Notes.createFileSync({
+      store: store,
+      showBanner: showBanner,
+      confirmDialog: backup.confirmDialog,
+      onSaved: function () { backup.refreshReminder(); }
+    });
 
     // Grille + panneau redessinés ensemble, au plus une fois par frame
     var refreshPending = false;
@@ -190,7 +196,7 @@
     backup.refreshReminder();
 
     // Accès console pour le débogage : Notes.app.store.getNotes()
-    Notes.app = { store: store, ui: ui, editor: editor, panel: panel, backup: backup, gridDrag: gridDrag, clock: clock };
+    Notes.app = { store: store, ui: ui, editor: editor, panel: panel, backup: backup, gridDrag: gridDrag, clock: clock, fileSync: fileSync };
   }
 
   document.addEventListener('DOMContentLoaded', start);
