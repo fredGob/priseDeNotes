@@ -24,9 +24,61 @@
     return e;
   }
 
-  function autoGrow(ta) {
-    ta.style.height = 'auto';
-    ta.style.height = ta.scrollHeight + 'px';
+  // ---------------------------------------------------------------- zone de texte enrichi
+  // Chaque ligne est un <div contenteditable> : gras / italique visibles pendant la saisie.
+  // Les positions de curseur sont exprimées en caractères du texte VISIBLE (sans repères).
+
+  var R = Notes.rich;
+
+  function richValue(div) { return R.serialize(R.domToRuns(div)); }
+  function richPlain(div) { return R.domToRuns(div).map(function (r) { return r.text; }).join(''); }
+
+  /** Position (texte visible) d'un point du DOM (nœud + décalage) dans la zone. */
+  function offsetOf(root, node, offset) {
+    var pos = 0, found = false;
+    function walk(n) {
+      if (found) return;
+      if (n === node && n.nodeType === 3) { pos += offset; found = true; return; }
+      if (n === node) {                     // point entre des enfants d'un élément
+        for (var k = 0; k < offset && k < n.childNodes.length; k++) walk(n.childNodes[k]);
+        found = true; return;
+      }
+      if (n.nodeType === 3) { pos += n.nodeValue.length; return; }
+      if (n.nodeName === 'BR') { pos += 1; return; }
+      Array.prototype.forEach.call(n.childNodes, walk);
+    }
+    walk(root);
+    return Math.min(pos, richPlain(root).length);
+  }
+
+  /** Sélection courante dans la zone → { start, end } (texte visible). */
+  function getCaret(div) {
+    var sel = global.getSelection();
+    if (!sel || !sel.rangeCount || !div.contains(sel.anchorNode)) { var l = richPlain(div).length; return { start: l, end: l }; }
+    var r = sel.getRangeAt(0);
+    return { start: offsetOf(div, r.startContainer, r.startOffset), end: offsetOf(div, r.endContainer, r.endOffset) };
+  }
+
+  /** Place le curseur à la position `pos` du texte visible. */
+  function setCaret(div, pos) {
+    var range = document.createRange(), left = pos, done = false;
+    (function walk(n) {
+      if (done) return;
+      if (n.nodeType === 3) {
+        if (left <= n.nodeValue.length) { range.setStart(n, left); done = true; return; }
+        left -= n.nodeValue.length; return;
+      }
+      if (n.nodeName === 'BR') {
+        if (left === 0) { range.setStartBefore(n); done = true; return; }
+        left -= 1; return;
+      }
+      Array.prototype.forEach.call(n.childNodes, walk);
+    })(div);
+    if (!done) { range.selectNodeContents(div); range.collapse(false); }
+    range.collapse(true);
+    var sel = global.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
   }
 
   function focusEnd(input) {
@@ -177,15 +229,26 @@
           row.appendChild(box_);
         }
 
-        var ta = el('textarea', 'editor-item-text');
-        ta.rows = 1;
-        ta.value = item.text;
-        ta.placeholder = item.type === 'task' ? 'Tâche' : 'Texte';
+        var ta = el('div', 'editor-item-text');
+        ta.contentEditable = 'true';
+        ta.spellcheck = true;
+        ta.setAttribute('role', 'textbox');
+        ta.setAttribute('aria-multiline', item.type === 'text' ? 'true' : 'false');
+        ta.dataset.placeholder = item.type === 'text' ? 'Texte' : 'Tâche';
+        R.renderRich(ta, item.text);
         ta.addEventListener('input', function () {
-          store.updateItem(noteId, item.id, { text: ta.value });
-          autoGrow(ta);
+          if (!richPlain(ta)) ta.textContent = '';            // vide → le texte d'aide réapparaît
+          store.updateItem(noteId, item.id, { text: richValue(ta) });
         });
         ta.addEventListener('keydown', function (e) { onItemKey(e, item, ta); });
+        // Coller : texte simple uniquement (pas de mise en forme venue de Word ou d'un mail)
+        ta.addEventListener('paste', function (e) {
+          e.preventDefault();
+          var txt = (e.clipboardData || global.clipboardData).getData('text/plain') || '';
+          if (item.type !== 'text') txt = txt.replace(/\s*\n\s*/g, ' ');
+          document.execCommand('insertText', false, txt);
+        });
+        ta.addEventListener('drop', function (e) { e.preventDefault(); });
         row.appendChild(ta);
 
         if (item.type === 'deadline') {
@@ -227,12 +290,9 @@
         if (focus && focus.itemId === item.id) toFocus = { ta: ta, caret: focus.caret };
       });
 
-      Array.prototype.forEach.call(itemsEl.querySelectorAll('textarea'), autoGrow);
-
       if (toFocus) {
         toFocus.ta.focus();
-        var c = typeof toFocus.caret === 'number' ? toFocus.caret : toFocus.ta.value.length;
-        toFocus.ta.setSelectionRange(c, c);
+        setCaret(toFocus.ta, typeof toFocus.caret === 'number' ? toFocus.caret : richPlain(toFocus.ta).length);
       }
     }
 
@@ -287,12 +347,29 @@
       var idx = indexOfItem(item.id);
       var to = idx + delta;
       if (to < 0 || to >= store.getNote(noteId).items.length) return;
-      var caret = ta.selectionStart;
+      var caret = getCaret(ta).start;
       store.moveItem(noteId, item.id, to);
       renderItems({ itemId: item.id, caret: caret });
     }
 
     function onItemKey(e, item, ta) {
+      // Ctrl+B / Ctrl+I : gras / italique ; Ctrl+U désactivé (le souligné n'est pas conservé)
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+        var k = e.key.toLowerCase();
+        if (k === 'b' || k === 'i') {
+          e.preventDefault();
+          document.execCommand(k === 'b' ? 'bold' : 'italic');
+          store.updateItem(noteId, item.id, { text: richValue(ta) });
+          return;
+        }
+        if (k === 'u') { e.preventDefault(); return; }
+      }
+      // Texte libre : Entrée = saut de ligne dans la même zone
+      if (e.key === 'Enter' && item.type === 'text') {
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
+        return;
+      }
       if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
         moveRowByKey(item, ta, e.key === 'ArrowUp' ? -1 : 1);
@@ -306,9 +383,9 @@
       // Entrée dans une tâche → nouvelle tâche en dessous, avec la fin du texte
       if (e.key === 'Enter' && !e.shiftKey && item.type === 'task') {
         e.preventDefault();
-        var cut = ta.selectionStart;
-        var before = ta.value.slice(0, cut);
-        var after = ta.value.slice(ta.selectionEnd);
+        var sel = getCaret(ta), value = richValue(ta);
+        var before = R.split(value, sel.start)[0];
+        var after = R.split(value, sel.end)[1];               // la mise en forme suit le texte
         store.updateItem(noteId, item.id, { text: before });
         var created = store.addItem(noteId, { type: 'task', text: after }, indexOfItem(item.id) + 1);
         renderItems({ itemId: created.id, caret: 0 });
@@ -316,20 +393,22 @@
       }
       // Retour arrière en début d'une ligne non vide → fusion avec la ligne précédente
       // (texte ou case à cocher uniquement ; jamais avec une tâche à délai)
-      if (e.key === 'Backspace' && ta.value !== '' && ta.selectionStart === 0 && ta.selectionEnd === 0) {
+      var caretNow = e.key === 'Backspace' ? getCaret(ta) : null;
+      var isEmpty = e.key === 'Backspace' && richPlain(ta) === '';
+      if (e.key === 'Backspace' && !isEmpty && caretNow.start === 0 && caretNow.end === 0) {
         if (item.type === 'deadline') return;
         var i0 = indexOfItem(item.id);
         var prevItem = i0 > 0 ? store.getNote(noteId).items[i0 - 1] : null;
         if (!prevItem || prevItem.type === 'deadline') return;
         e.preventDefault();
-        var caret = prevItem.text.length;
-        store.updateItem(noteId, prevItem.id, { text: prevItem.text + ta.value });
+        var caret = R.plain(prevItem.text).length;
+        store.updateItem(noteId, prevItem.id, { text: R.concat(prevItem.text, richValue(ta)) });
         store.deleteItem(noteId, item.id);
         renderItems({ itemId: prevItem.id, caret: caret });
         return;
       }
       // Retour arrière sur une ligne vide → la supprime, remonte à la précédente
-      if (e.key === 'Backspace' && ta.value === '') {
+      if (isEmpty) {
         e.preventDefault();
         var idx = indexOfItem(item.id);
         var items = store.getNote(noteId).items;

@@ -83,6 +83,7 @@ notes-app/
   index.html        # page principale, charge les scripts dans l'ordre
   css/style.css
   js/workdays.js    # logique pure : jours ouvrés, urgence d'une tâche à délai
+  js/richtext.js    # gras / italique : lecture, écriture, découpe, fusion (+ rendu DOM sûr)
   js/store.js       # logique pure : données, CRUD, tri (aucun accès au DOM)
   js/layout.js      # logique pure : placement maçonnerie des cartes (aucun accès au DOM)
   js/ui.js          # rendu de la grille, filtre, barre d'étiquettes + Notes.view (affichage partagé)
@@ -98,7 +99,7 @@ notes-app/
   tests/tests.html  # tests unitaires, ouverts dans le navigateur
   tests/tests.js
 ```
-- Ordre de chargement : `workdays` → `store` → `ephemeris` → `layout` → `ui` → `drag` → `editor` → `panel` → `backup` → `clock` → `filesync` → `app`.
+- Ordre de chargement : `workdays` → `richtext` → `store` → `ephemeris` → `layout` → `ui` → `drag` → `editor` → `panel` → `backup` → `clock` → `filesync` → `app`.
 - Les modules « logique pure » ne touchent jamais au DOM → testables seuls.
 - Les vues ne modifient jamais les données directement → passent toujours par `store.js`.
 - Jamais de texte utilisateur via `innerHTML` → `textContent` uniquement.
@@ -139,6 +140,21 @@ notes-app/
 - Clic (ou Entrée) sur une tâche du panneau → `editor.open(noteId, { focusItemId })` :
   carte ouverte, curseur sur la tâche, bref surlignage.
 - Couleur : rangée de 7 pastilles en bas du modal (style Keep), appliquée immédiatement.
+
+## Gras / italique (`richtext.js`)
+- Le texte d'un élément reste une **chaîne** avec des repères façon Markdown : `**gras**`,
+  `*italique*`, `***les deux***`. Compatible avec les anciennes notes, l'export et la recherche
+  (`Notes.rich.plain` retire les repères).
+- Règle Markdown : un repère n'ouvre que collé au mot suivant, ne ferme que collé au mot
+  précédent ; un repère orphelin reste du texte (« 5 * 3 » jamais interprété). À l'écriture,
+  `*` et `\` du texte sont échappés, et les espaces en bordure sortent des repères.
+- Saisie : chaque ligne du modal est un `<div contenteditable>` (plus de `<textarea>`).
+  Ctrl+B / Ctrl+I → `execCommand('bold' | 'italic')` ; Ctrl+U bloqué (non conservé) ;
+  collage forcé en texte simple ; dépôt de contenu bloqué. Lecture du DOM : `Notes.rich.domToRuns`.
+  Positions de curseur en caractères **visibles** (`getCaret` / `setCaret`) ; découpe et fusion
+  de lignes via `Notes.rich.split` / `Notes.rich.concat` (la mise en forme suit le texte).
+- Affichage (sticker, liste de droite) : `Notes.view.richEl` → `<strong>` / `<em>` créés en DOM,
+  jamais `innerHTML`. Titre, étiquettes et formulaire « mode tâche » restent en texte simple.
 
 ## Taille des stickers
 - Menu ⋮ → Petit / Moyen / Grand (`--card-w` 240 / 290 / 360 px, `--card-fs` 14,5 / 16 / 18,5 px),
@@ -286,5 +302,7 @@ Toute erreur (id inconnu, couleur invalide, délai invalide…) lève une `Error
 - [x] Réglage de taille des stickers (Petit / Moyen / Grand)
 - [x] Encart heure / date / semaine / éphéméride
 - [x] Sauvegarde automatique dans un fichier (prêt pour Google Drive pour ordinateur)
+- [x] Glisser-déposer précis (colonnes mémorisées)
+- [x] Gras / italique (Ctrl+B / Ctrl+I), visibles pendant la saisie
 
-Tests : 105 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).
+Tests : 113 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).

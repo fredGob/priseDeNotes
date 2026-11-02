@@ -35,7 +35,7 @@ utilise aussi le zoom d'Edge : **Ctrl + molette** ou **Ctrl +** / **Ctrl −**.
 | Ouvrir / modifier | Clic sur le sticker (ou Tab puis Entrée) |
 | Fermer | Échap, clic à côté, ou « Fermer » — tout est enregistré à chaque frappe |
 | Changer la couleur | Pastilles en bas de la carte ouverte |
-| Déplacer | Cliquer-glisser le sticker dans la grille |
+| Déplacer | Cliquer-glisser le sticker : il se pose exactement sous (ou au-dessus de) la carte visée, les autres colonnes ne bougent pas |
 | Archiver | « Archiver » en bas de la carte ouverte (annulable) |
 | Supprimer | « Supprimer » en bas de la carte ouverte, puis **Annuler** dans le bandeau si besoin |
 
@@ -50,6 +50,9 @@ Trois types de lignes, mélangeables dans n'importe quel ordre :
   (ex. « → ven. 13 nov. (Armistice 1918 exclu) »). Le délai reste modifiable ensuite.
 
 Raccourcis dans une ligne :
+- **Ctrl + B** / **Ctrl + I** → gras / italique (sur la sélection, ou pour la suite de la frappe).
+  Visible pendant la saisie, dans les stickers et dans la liste de droite. Coller depuis Word
+  ou un mail insère du texte simple.
 - **Entrée** au milieu d'une case → la coupe en deux.
 - **Retour arrière** sur une ligne vide → la supprime ; en début de ligne → la fusionne avec celle du dessus.
 - **Alt + ↑ / ↓** → monte / descend la ligne. À la souris : poignée **⋮⋮** à gauche de la ligne.

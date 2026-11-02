@@ -236,17 +236,25 @@ body.modal-open { overflow: hidden; }
 
 .editor-item-text {
   flex: 1;
-  min-height: 1.6em;
+  min-width: 0;
+  min-height: 1.45em;
   padding: .15rem 0;
   font: inherit;
   line-height: 1.45;
   color: inherit;
-  background: transparent;
-  border: none;
+  white-space: pre-wrap;          /* sauts de ligne et espaces conservés */
+  overflow-wrap: anywhere;
   outline: none;
-  resize: none;
-  overflow: hidden;
+  cursor: text;
 }
+.editor-item-text:empty::before {  /* texte d'aide (« Texte », « Tâche ») */
+  content: attr(data-placeholder);
+  color: #9aa0a6;
+  pointer-events: none;
+}
+.editor-item-text b, .editor-item-text strong { font-weight: 700; }
+.editor-item-deadline .editor-item-text b,
+.editor-item-deadline .editor-item-text strong { font-weight: 800; }
 .editor-item.done .editor-item-text { color: var(--muted); text-decoration: line-through; }
 
 .editor-item-del {
@@ -873,3 +881,6 @@ body.is-dragging { user-select: none; cursor: grabbing; }
 .panel .panel-done summary,
 .panel .clock-delta { color: #555b61; }
 .panel-task { border-color: #d9dce0; }
+
+/* Gras dans un texte déjà en gras (tâches à délai) : un cran au-dessus */
+.item-deadline .item-text strong, .panel-task-text strong { font-weight: 800; }

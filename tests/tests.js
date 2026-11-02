@@ -435,6 +435,60 @@
     });
   });
 
+  group('Gras / italique (richtext.js)', function () {
+    var R = Notes.rich;
+    function show(runs) { return runs.map(function (r) { return (r.b ? 'B' : '') + (r.i ? 'I' : '') + '[' + r.text + ']'; }).join(''); }
+
+    test('lecture : gras, italique, les deux', function () {
+      eq(show(R.parse('a **gras** b *ita* c ***les deux***')),
+        '[a ]B[gras][ b ]I[ita][ c ]BI[les deux]');
+      eq(show(R.parse('texte simple')), '[texte simple]');
+      eq(R.parse(''), []);
+    });
+
+    test('anciennes notes : un « * » isolé reste du texte', function () {
+      eq(show(R.parse('5 * 3 = 15')), '[5 * 3 = 15]');
+      eq(show(R.parse('note **importante')), '[note **importante]');
+      eq(R.plain('2 * 3 et *ok*'), '2 * 3 et ok');
+    });
+
+    test('écriture : repères équilibrés, « * » et « \\ » échappés', function () {
+      eq(R.serialize([{ text: 'a ' }, { text: 'gras', b: true }, { text: ' ' }, { text: 'it', i: true }]), 'a **gras** *it*');
+      eq(R.serialize([{ text: 'x', b: true, i: true }]), '***x***');
+      eq(R.serialize([{ text: '5 * 3 \\ ok' }]), '5 \\* 3 \\\\ ok');
+      eq(R.serialize([{ text: 'a', b: true }, { text: 'b', b: true }, { text: '' }]), '**ab**');
+    });
+
+    test('aller-retour exact (texte ↔ morceaux)', function () {
+      ['a **gras** b', '***x*** y *z*', '5 \\* 3', 'ligne 1\nligne **2**', '**a *b* c**'].forEach(function (s) {
+        var runs = R.parse(s);
+        eq(R.parse(R.serialize(runs)), runs, s);
+      });
+    });
+
+    test('couper au curseur en gardant la mise en forme', function () {
+      eq(R.split('Pain **complet** bio', 9), ['Pain **comp**', '**let** bio']);
+      eq(R.split('abc', 0), ['', 'abc']);
+      eq(R.split('abc', 3), ['abc', '']);
+    });
+
+    test('écriture : jamais de repère collé à un espace', function () {
+      var str = R.serialize([{ text: 'a' }, { text: ' gras ', b: true }, { text: 'b' }]);
+      eq(str, 'a **gras** b');
+      eq(R.serialize([{ text: 'x ', b: true }, { text: 'y', b: true, i: true }]), '**x *y***');
+    });
+
+    test('fusion de deux lignes', function () {
+      eq(R.concat('Pain **comp**', '**let** bio'), 'Pain **complet** bio');
+      eq(R.concat('a *b*', 'c'), 'a *b*c');
+    });
+
+    test('la recherche ignore la mise en forme', function () {
+      var notes = [{ id: 'x', title: 'T', tags: [], items: [{ id: 'i', type: 'text', text: 'le **rapport** final' }] }];
+      eq(Notes.filterNotes(notes, { query: 'rapport final' }).length, 1);
+    });
+  });
+
   group('Éphéméride (ephemeris.js)', function () {
     var E = Notes.ephemeris;
 

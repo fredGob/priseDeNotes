@@ -50,8 +50,16 @@
     return u;
   }
 
+  /** Élément affichant un texte avec sa mise en forme (gras / italique). */
+  function richEl(tag, className, text) {
+    var e = el(tag, className);
+    Notes.rich.renderRich(e, text);
+    return e;
+  }
+
   Notes.view = {
     el: el,
+    richEl: richEl,
     updateDeadline: updateDeadline
   };
 
@@ -64,9 +72,9 @@
     box.type = 'checkbox';
     box.checked = item.done;
     box.dataset.itemId = item.id;
-    box.setAttribute('aria-label', 'Terminer « ' + item.text + ' »');
+    box.setAttribute('aria-label', 'Terminer « ' + Notes.rich.plain(item.text) + ' »');
     row.appendChild(box);
-    row.appendChild(el('span', 'item-text', item.text));
+    row.appendChild(richEl('span', 'item-text', item.text));
     row.appendChild(el('span', 'dl-label'));
     wrap.appendChild(row);
     updateDeadline(wrap, item, today);
@@ -81,12 +89,12 @@
       box.type = 'checkbox';
       box.checked = item.done;
       box.dataset.itemId = item.id;
-      box.setAttribute('aria-label', 'Cocher « ' + item.text + ' »');
+      box.setAttribute('aria-label', 'Cocher « ' + Notes.rich.plain(item.text) + ' »');
       row.appendChild(box);
-      row.appendChild(el('span', 'item-text', item.text));
+      row.appendChild(richEl('span', 'item-text', item.text));
       return row;
     }
-    return el('div', 'item item-text-block', item.text);
+    return richEl('div', 'item item-text-block', item.text);
   }
 
   function renderCard(note, today) {

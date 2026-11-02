@@ -32,11 +32,11 @@
       var box = el('input');
       box.type = 'checkbox';
       box.checked = item.done;
-      box.setAttribute('aria-label', (item.done ? 'Rouvrir « ' : 'Terminer « ') + item.text + ' »');
+      box.setAttribute('aria-label', (item.done ? 'Rouvrir « ' : 'Terminer « ') + Notes.rich.plain(item.text) + ' »');
       row.appendChild(box);
 
       var main = el('div', 'panel-task-main');
-      main.appendChild(el('span', 'panel-task-text', item.text));
+      main.appendChild(V.richEl('span', 'panel-task-text', item.text));
       var meta = el('span', 'panel-task-meta');
       meta.appendChild(el('span', 'color-dot color-' + entry.noteColor));
       meta.appendChild(document.createTextNode(entry.noteTitle || 'Sans titre'));

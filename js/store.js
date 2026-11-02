@@ -669,7 +669,8 @@
       if (!!n.archived !== archived) return false;
       if (tag && !n.tags.some(function (t) { return t.toLowerCase() === tag; })) return false;
       if (!words.length) return true;
-      var hay = fold([n.title].concat(n.tags, n.items.map(function (i) { return i.text; })).join(' \n '));
+      var plainText = Notes.rich ? Notes.rich.plain : function (t) { return t; };
+      var hay = fold([n.title].concat(n.tags, n.items.map(function (i) { return plainText(i.text); })).join(' \n '));
       return words.every(function (w) { return hay.indexOf(w) !== -1; });
     });
   }
