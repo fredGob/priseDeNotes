@@ -18,8 +18,9 @@
   var COLORS = ['default', 'yellow', 'green', 'blue', 'pink', 'purple', 'grey'];
   // text     : texte libre
   // task     : case à cocher simple (checklist)
+  // bullet   : élément de liste à puces (pas de case, pas de date)
   // deadline : tâche à délai (jours ouvrés), suivie dans le panneau de droite
-  var ITEM_TYPES = ['text', 'task', 'deadline'];
+  var ITEM_TYPES = ['text', 'task', 'deadline', 'bullet'];
   var CHECKABLE = ['task', 'deadline'];
   var CARD_SIZES = ['small', 'medium', 'large'];
   var MAX_DAYS = 365;
@@ -595,7 +596,7 @@
         else itemIds[it.id] = true;
         if (ITEM_TYPES.indexOf(it.type) === -1) { err(w + ' : type inconnu (' + it.type + ').'); return; }
         if (!isStr(it.text)) err(w + ' : texte invalide.');
-        if (it.type !== 'text' && typeof it.done !== 'boolean') err(w + ' : état coché invalide.');
+        if (CHECKABLE.indexOf(it.type) !== -1 && typeof it.done !== 'boolean') err(w + ' : état coché invalide.');
         if (it.type === 'deadline') {
           if (!Number.isInteger(it.days) || it.days < 1 || it.days > MAX_DAYS) err(w + ' : délai invalide.');
           if (!isValidDate(it.start)) err(w + ' : date de début invalide.');

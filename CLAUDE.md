@@ -25,7 +25,8 @@ Appli de prise de notes personnelle, utilisée sur un **poste de travail d'entre
 - Carte = titre + couleur + étiquettes + liste d'éléments de 3 types, dans l'ordre voulu :
   - **texte** libre ;
   - **case à cocher** simple (checklist, sans date) ;
-  - **tâche à délai** : intitulé + délai en jours ouvrés, mise en évidence avec pastille d'urgence.
+  - **tâche à délai** : intitulé + délai en jours ouvrés, mise en évidence avec pastille d'urgence ;
+  - **puce** (`bullet`) : élément de liste à puces, un seul niveau (ni case, ni date).
 - Panneau de droite des tâches à délai (tri par urgence, cocher, section « Terminées »).
 - Filtre par étiquette.
 - Export / import JSON.
@@ -64,7 +65,8 @@ Appli de prise de notes personnelle, utilisée sur un **poste de travail d'entre
         { "id": "i_a1", "type": "text", "text": "Livraison V1" },
         { "id": "i_a2", "type": "task", "text": "Relire la spec", "done": false },
         { "id": "i_a3", "type": "deadline", "text": "Rapport tolérances", "done": false,
-          "days": 5, "start": "2026-10-29", "due": "2026-11-05", "doneAt": null }
+          "days": 5, "start": "2026-10-29", "due": "2026-11-05", "doneAt": null },
+        { "id": "i_a4", "type": "bullet", "text": "Point à **retenir**" }
       ],
       "createdAt": "2026-10-31T09:00:00Z",
       "updatedAt": "2026-10-31T09:00:00Z"
@@ -121,15 +123,18 @@ notes-app/
 
 ## Édition
 - Clic (ou Entrée) sur une carte → modal centré ; « + Nouvelle note » crée la note et ouvre le modal.
-- Boutons texte simples (style Keep) : « + Texte », « + Case à cocher », « + Tâche à délai ».
+- Boutons texte simples (style Keep) : « + Texte », « + Case à cocher », « + Liste à puces »,
+  « + Tâche à délai ».
   **Insertion au curseur** (`insertItem`) : curseur dans un texte → texte coupé après la ligne
   en cours (`Notes.rich.cutAfterLine`, sur une ligne vide l'élément la remplace) ; curseur dans
   une autre ligne → juste dessous ; sinon en fin de carte. Les boutons ne volent pas le focus
   (`mousedown` → `preventDefault`), position mémorisée (`lastPoint`, `pendingPoint` pour le
   formulaire « tâche à délai »).
-- Raccourci : `[]` ou `[ ]` + espace en début de ligne d'un texte → la ligne devient une case.
-- Entrée sur une case **vide** → fin de liste : retour au texte (ligne vide en tête du texte
-  qui suit, ou nouveau bloc de texte).
+- Raccourcis en début de ligne d'un texte, suivis d'un espace : `[]` / `[ ]` → case à cocher ;
+  `-`, `*` ou `•` → puce.
+- Cases et puces partagent le comportement « liste » : Entrée → élément suivant du même type
+  (coupe au curseur) ; Entrée sur un élément **vide** → fin de liste : retour au texte (ligne
+  vide en tête du texte qui suit, ou nouveau bloc de texte).
 - Style : la ligne d'un bloc de texte a la classe `editor-item-para` (jamais `editor-item-text`,
   réservée à la zone de saisie) et `flex-shrink: 0` → une longue ligne n'est jamais écrasée.
 - Chaque frappe est enregistrée immédiatement. Le modal n'est reconstruit qu'après un ajout /
@@ -268,7 +273,7 @@ suivante avant validation.
 | `deleteNote(id)` → `{ note, index }` / `restoreNote(snapshot)` | Suppression annulable |
 | `setArchived(id, bool)` | Archivage (garde sa place dans l'ordre) |
 | `moveNote(id, index)` | Déplacement, renumérotation automatique |
-| `addItem(noteId, {type, text, days?}, index?)` | `type` = `text`, `task` ou `deadline` (`days` obligatoire et réservé à `deadline`) ; en fin de carte, ou à `index` |
+| `addItem(noteId, {type, text, days?}, index?)` | `type` = `text`, `task`, `bullet` ou `deadline` (`days` obligatoire et réservé à `deadline`) ; en fin de carte, ou à `index` |
 | `updateItem(noteId, itemId, {text?, done?, days?})` | `done` : `task`/`deadline` (renseigne `doneAt`) ; `days` : `deadline` (recalcule `due`) |
 | `toggleTask(noteId, itemId)` / `deleteItem(...)` / `moveItem(..., index)` | |
 | `finalizeNote(noteId)` | À la fermeture de l'éditeur : retire les éléments vides, supprime la note si vide → `{ deleted }` |
@@ -317,5 +322,6 @@ Toute erreur (id inconnu, couleur invalide, délai invalide…) lève une `Error
 - [x] Gras / italique (Ctrl+B / Ctrl+I), visibles pendant la saisie
 - [x] Cases et tâches insérées au milieu d'un texte (au curseur, raccourci `[]`)
 - [x] Correctif : longue note, la ligne ajoutée ne chevauche plus le texte
+- [x] Liste à puces (bouton, raccourcis `-` `*` `•`, un seul niveau)
 
-Tests : 116 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).
+Tests : 119 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).

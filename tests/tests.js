@@ -1006,6 +1006,36 @@
     });
   });
 
+  group('Liste à puces', function () {
+    test('élément à puce : ni case, ni date ; refuse done et days', function () {
+      var s = makeStore();
+      var n = s.addNote();
+      var b = s.addItem(n.id, { type: 'bullet', text: 'Point' });
+      eq(b, { id: b.id, type: 'bullet', text: 'Point' });
+      throws(function () { s.updateItem(n.id, b.id, { done: true }); }, 'réservé');
+      throws(function () { s.toggleTask(n.id, b.id); }, 'tâche');
+      throws(function () { s.addItem(n.id, { type: 'bullet', text: 'x', days: 2 }); }, 'délai');
+    });
+
+    test('puce vide retirée à la fermeture ; sauvegarde valide', function () {
+      var s = makeStore();
+      var n = s.addNote({ title: 'L' });
+      s.addItem(n.id, { type: 'bullet', text: 'garde' });
+      s.addItem(n.id, { type: 'bullet', text: '  ' });
+      s.finalizeNote(n.id);
+      eq(s.getNote(n.id).items.map(function (i) { return i.text; }), ['garde']);
+      var r = Notes.validateBackup(s.exportData());
+      eq([r.ok, r.notes[0].items[0].type], [true, 'bullet']);
+    });
+
+    test('la recherche trouve le texte d\'une puce', function () {
+      var s = makeStore();
+      var n = s.addNote({ title: 'L' });
+      s.addItem(n.id, { type: 'bullet', text: 'Budget **2027**' });
+      eq(Notes.filterNotes(s.getNotes(), { query: 'budget 2027' }).length, 1);
+    });
+  });
+
   group('Fermeture de l\'éditeur (finalizeNote)', function () {
     test('note sans titre ni élément → supprimée', function () {
       var s = makeStore();

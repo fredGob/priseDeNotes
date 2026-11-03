@@ -83,6 +83,14 @@
 
   function renderItem(item, today) {
     if (item.type === 'deadline') return renderDeadline(item, today);
+    if (item.type === 'bullet') {
+      var li = el('div', 'item item-bullet');
+      var dot = el('span', 'bullet-dot', '•');
+      dot.setAttribute('aria-hidden', 'true');
+      li.appendChild(dot);
+      li.appendChild(richEl('span', 'item-text', item.text));
+      return li;
+    }
     if (item.type === 'task') {
       var row = el('div', 'item item-task' + (item.done ? ' done' : ''));
       var box = el('input');

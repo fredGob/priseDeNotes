@@ -113,10 +113,12 @@
     var addBar = el('div', 'editor-add');
     var btnAddText = el('button', 'btn-ghost', '+ Texte');
     var btnAddTask = el('button', 'btn-ghost', '+ Case à cocher');
+    var btnAddBullet = el('button', 'btn-ghost', '+ Liste à puces');
     var btnAddDeadline = el('button', 'btn-ghost btn-deadline', '+ Tâche à délai');
-    btnAddText.type = btnAddTask.type = btnAddDeadline.type = 'button';
+    btnAddText.type = btnAddTask.type = btnAddBullet.type = btnAddDeadline.type = 'button';
     addBar.appendChild(btnAddText);
     addBar.appendChild(btnAddTask);
+    addBar.appendChild(btnAddBullet);
     addBar.appendChild(btnAddDeadline);
 
     // « Mode tâche » : formulaire de saisie d'une tâche à délai
@@ -219,6 +221,12 @@
         handle.addEventListener('pointerdown', function (e) { startRowDrag(e, row, item); });
         row.appendChild(handle);
 
+        if (item.type === 'bullet') {
+          var dot = el('span', 'editor-bullet', '•');
+          dot.setAttribute('aria-hidden', 'true');
+          row.appendChild(dot);
+        }
+
         if (item.type === 'task' || item.type === 'deadline') {
           var box_ = el('input');
           box_.type = 'checkbox';
@@ -237,7 +245,7 @@
         ta.spellcheck = true;
         ta.setAttribute('role', 'textbox');
         ta.setAttribute('aria-multiline', item.type === 'text' ? 'true' : 'false');
-        ta.dataset.placeholder = item.type === 'text' ? 'Texte' : 'Tâche';
+        ta.dataset.placeholder = item.type === 'text' ? 'Texte' : item.type === 'bullet' ? 'Élément de liste' : 'Tâche';
         R.renderRich(ta, item.text);
         ta.addEventListener('input', function () {
           if (!richPlain(ta)) ta.textContent = '';            // vide → le texte d'aide réapparaît
@@ -388,8 +396,9 @@
         e.preventDefault();
         return;
       }
-      // Entrée sur une case vide → fin de la liste : on repasse en texte
-      if (e.key === 'Enter' && !e.shiftKey && item.type === 'task' && richPlain(ta) === '') {
+      // Entrée sur une case / une puce vide → fin de la liste : on repasse en texte
+      var isList = item.type === 'task' || item.type === 'bullet';
+      if (e.key === 'Enter' && !e.shiftKey && isList && richPlain(ta) === '') {
         e.preventDefault();
         var iE = indexOfItem(item.id);
         var nextE = store.getNote(noteId).items[iE + 1];
@@ -403,14 +412,14 @@
         }
         return;
       }
-      // Entrée dans une tâche → nouvelle tâche en dessous, avec la fin du texte
-      if (e.key === 'Enter' && !e.shiftKey && item.type === 'task') {
+      // Entrée dans une case / une puce → la suivante en dessous, avec la fin du texte
+      if (e.key === 'Enter' && !e.shiftKey && isList) {
         e.preventDefault();
         var sel = getCaret(ta), value = richValue(ta);
         var before = R.split(value, sel.start)[0];
         var after = R.split(value, sel.end)[1];               // la mise en forme suit le texte
         store.updateItem(noteId, item.id, { text: before });
-        var created = store.addItem(noteId, { type: 'task', text: after }, indexOfItem(item.id) + 1);
+        var created = store.addItem(noteId, { type: item.type, text: after }, indexOfItem(item.id) + 1);
         renderItems({ itemId: created.id, caret: 0 });
         return;
       }
@@ -502,20 +511,25 @@
       renderItems({ itemId: created.id });
     }
 
-    /** « [] » ou « [ ] » + espace en début de ligne d'un texte → la ligne devient une case. */
+    /**
+     * Raccourcis en début de ligne d'un texte (suivis d'un espace) :
+     * « [] » / « [ ] » → case à cocher ; « - », « * » ou « • » → puce.
+     */
     function checkboxShortcut(item, ta) {
       var c = getCaret(ta);
       if (c.start !== c.end) return;
       var value = richValue(ta);
       var L = R.lineAt(value, c.start);
-      if (!/^\[ ?\][ \u00a0]$/.test(L.text.slice(0, c.start - L.start))) return;
+      var typed = L.text.slice(0, c.start - L.start);
+      var type = /^\[ ?\][ \u00a0]$/.test(typed) ? 'task' : /^[-*•][ \u00a0]$/.test(typed) ? 'bullet' : null;
+      if (!type) return;
       var before = L.start > 0 ? R.slice(value, 0, L.start - 1) : '';
       var rest = R.slice(value, c.start, L.end);
       var after = L.end < L.length ? R.slice(value, L.end + 1) : '';
       var idx = indexOfItem(item.id), at = idx + 1;
       if (before) store.updateItem(noteId, item.id, { text: before });
       else { store.deleteItem(noteId, item.id); at = idx; }
-      var created = store.addItem(noteId, { type: 'task', text: rest }, at);
+      var created = store.addItem(noteId, { type: type, text: rest }, at);
       if (after) store.addItem(noteId, { type: 'text', text: after }, at + 1);
       renderItems({ itemId: created.id, caret: 0 });
     }
@@ -527,6 +541,7 @@
 
     btnAddText.addEventListener('click', function () { addItem('text'); });
     btnAddTask.addEventListener('click', function () { addItem('task'); });
+    btnAddBullet.addEventListener('click', function () { addItem('bullet'); });
 
     // ---------------------------------------------------------- étiquettes
 

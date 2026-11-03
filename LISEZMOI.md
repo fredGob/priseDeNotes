@@ -45,6 +45,8 @@ Une note laissée vide est supprimée automatiquement à la fermeture.
 Trois types de lignes, mélangeables dans n'importe quel ordre :
 - **+ Texte** : texte libre (plusieurs lignes).
 - **+ Case à cocher** : liste simple. *Entrée* crée la case suivante.
+- **+ Liste à puces** : « • élément ». *Entrée* crée la puce suivante, *Entrée* sur une puce
+  vide revient au texte. Raccourci : **`-`** (ou `*`, `•`) puis **espace** en début de ligne.
 - **+ Tâche à délai** : intitulé + délai en **jours ouvrés** (lundi → vendredi, **hors jours
   fériés français**). L'échéance est affichée avant de valider, avec les jours fériés exclus
   (ex. « → ven. 13 nov. (Armistice 1918 exclu) »). Le délai reste modifiable ensuite.

@@ -885,3 +885,20 @@ body.is-dragging { user-select: none; cursor: grabbing; }
 
 /* Gras dans un texte déjà en gras (tâches à délai) : un cran au-dessus */
 .item-deadline .item-text strong, .panel-task-text strong { font-weight: 800; }
+
+/* ------------------------------------------------------------ liste à puces */
+.item-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: .45rem;
+  line-height: 1.45;
+}
+.bullet-dot,
+.editor-bullet {
+  flex-shrink: 0;
+  width: 1em;
+  text-align: center;
+  font-weight: 700;
+  color: #5f6368;
+}
+.editor-bullet { margin-top: .15rem; line-height: 1.45; }
