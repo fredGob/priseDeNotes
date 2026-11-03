@@ -223,6 +223,7 @@ body.modal-open { overflow: hidden; }
 }
 
 .editor-item {
+  flex-shrink: 0;          /* une longue ligne ne doit jamais être écrasée (sinon elle déborde sur les suivantes) */
   display: flex;
   align-items: flex-start;
   gap: .45rem;

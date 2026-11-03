@@ -49,6 +49,14 @@ Trois types de lignes, mélangeables dans n'importe quel ordre :
   fériés français**). L'échéance est affichée avant de valider, avec les jours fériés exclus
   (ex. « → ven. 13 nov. (Armistice 1918 exclu) »). Le délai reste modifiable ensuite.
 
+Mélanger texte et cases à cocher :
+- Place le curseur dans ton texte, puis clique **+ Case à cocher** (ou **+ Tâche à délai**) :
+  le texte est coupé après la ligne en cours et la case s'insère dessous. Sur une ligne vide,
+  la case prend sa place.
+- Ou tape **`[]`** puis **espace** au début d'une ligne : elle devient une case à cocher.
+- **Entrée** crée la case suivante ; **Entrée sur une case vide** revient au texte.
+- **Retour arrière** au début d'une case placée sous du texte la retransforme en ligne de texte.
+
 Raccourcis dans une ligne :
 - **Ctrl + B** / **Ctrl + I** → gras / italique (sur la sélection, ou pour la suite de la frappe).
   Visible pendant la saisie, dans les stickers et dans la liste de droite. Coller depuis Word

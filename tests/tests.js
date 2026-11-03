@@ -483,6 +483,29 @@
       eq(R.concat('a *b*', 'c'), 'a *b*c');
     });
 
+    test('ligne contenant le curseur', function () {
+      var t = 'un\ndeux **trois**\nquatre';
+      eq(R.lineAt(t, 0), { start: 0, end: 2, length: 20, text: 'un' });
+      eq(R.lineAt(t, 6).text, 'deux trois');
+      eq(R.lineAt(t, 22).text, 'quatre');
+      eq(R.slice(t, 3, 13), 'deux **trois**');
+    });
+
+    test('insertion d\'une case dans un texte : après la ligne du curseur', function () {
+      var t = 'Intro\nPoint **important**\nConclusion';
+      eq(R.cutAfterLine(t, 8), ['Intro\nPoint **important**', 'Conclusion']);   // curseur au milieu d'une ligne
+      eq(R.cutAfterLine(t, 0), ['Intro', 'Point **important**\nConclusion']);
+      eq(R.cutAfterLine(t, 34), [t, '']);                                          // fin du texte
+      eq(R.cutAfterLine('seule ligne', 3), ['seule ligne', '']);
+    });
+
+    test('insertion sur une ligne vide : la case remplace la ligne', function () {
+      eq(R.cutAfterLine('avant\n\naprès', 6), ['avant', 'après']);
+      eq(R.cutAfterLine('\naprès', 0), ['', 'après']);
+      eq(R.cutAfterLine('avant\n', 6), ['avant', '']);
+      eq(R.cutAfterLine('', 0), ['', '']);
+    });
+
     test('la recherche ignore la mise en forme', function () {
       var notes = [{ id: 'x', title: 'T', tags: [], items: [{ id: 'i', type: 'text', text: 'le **rapport** final' }] }];
       eq(Notes.filterNotes(notes, { query: 'rapport final' }).length, 1);

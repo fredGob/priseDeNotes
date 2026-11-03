@@ -122,11 +122,22 @@ notes-app/
 ## Édition
 - Clic (ou Entrée) sur une carte → modal centré ; « + Nouvelle note » crée la note et ouvre le modal.
 - Boutons texte simples (style Keep) : « + Texte », « + Case à cocher », « + Tâche à délai ».
+  **Insertion au curseur** (`insertItem`) : curseur dans un texte → texte coupé après la ligne
+  en cours (`Notes.rich.cutAfterLine`, sur une ligne vide l'élément la remplace) ; curseur dans
+  une autre ligne → juste dessous ; sinon en fin de carte. Les boutons ne volent pas le focus
+  (`mousedown` → `preventDefault`), position mémorisée (`lastPoint`, `pendingPoint` pour le
+  formulaire « tâche à délai »).
+- Raccourci : `[]` ou `[ ]` + espace en début de ligne d'un texte → la ligne devient une case.
+- Entrée sur une case **vide** → fin de liste : retour au texte (ligne vide en tête du texte
+  qui suit, ou nouveau bloc de texte).
+- Style : la ligne d'un bloc de texte a la classe `editor-item-para` (jamais `editor-item-text`,
+  réservée à la zone de saisie) et `flex-shrink: 0` → une longue ligne n'est jamais écrasée.
 - Chaque frappe est enregistrée immédiatement. Le modal n'est reconstruit qu'après un ajout /
   une suppression d'élément (pour ne pas perdre le focus pendant la frappe).
 - Clavier : Entrée dans une case à cocher → nouvelle case en dessous (coupe au curseur) ;
   Retour arrière sur une ligne vide → la supprime ; Retour arrière en début de ligne non vide →
-  fusion avec la précédente (texte / case à cocher, jamais une tâche à délai) ;
+  fusion avec la précédente (texte / case à cocher, jamais une tâche à délai ; vers un texte,
+  la ligne s'ajoute comme **nouvelle ligne** → une case redevient une ligne du texte) ;
   Entrée dans le titre → premier élément ;
   Échap → ferme (ou ferme seulement le formulaire « mode tâche » s'il est ouvert).
 - Délai d'une tâche à délai modifiable sur place (champ nombre), échéance recalculée.
@@ -304,5 +315,7 @@ Toute erreur (id inconnu, couleur invalide, délai invalide…) lève une `Error
 - [x] Sauvegarde automatique dans un fichier (prêt pour Google Drive pour ordinateur)
 - [x] Glisser-déposer précis (colonnes mémorisées)
 - [x] Gras / italique (Ctrl+B / Ctrl+I), visibles pendant la saisie
+- [x] Cases et tâches insérées au milieu d'un texte (au curseur, raccourci `[]`)
+- [x] Correctif : longue note, la ligne ajoutée ne chevauche plus le texte
 
-Tests : 113 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).
+Tests : 116 tests unitaires (`tests/tests.html`) + scénarios automatisés (souris/clavier, hors ligne).

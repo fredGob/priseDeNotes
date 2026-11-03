@@ -92,6 +92,8 @@
     var overlay = opts.overlay;
     var noteId = null;
     var lastFocus = null;
+    var lastPoint = null;      // dernière position de curseur dans une ligne { itemId, caret }
+    var pendingPoint = null;   // position mémorisée à l'ouverture du formulaire « tâche à délai »
     var onDeleted = opts.onDeleted || function () {};
     var onArchived = opts.onArchived || function () {};
 
@@ -206,7 +208,8 @@
       var toFocus = null;
 
       note.items.forEach(function (item) {
-        var row = el('div', 'editor-item editor-item-' + item.type + (item.done ? ' done' : ''));
+        // Ligne de texte : classe « editor-item-para » (et non « -text », déjà prise par la zone de saisie)
+        var row = el('div', 'editor-item editor-item-' + (item.type === 'text' ? 'para' : item.type) + (item.done ? ' done' : ''));
         row.dataset.id = item.id;
 
         // Poignée de déplacement (glisser) ; au clavier : Alt + ↑ / ↓
@@ -239,6 +242,11 @@
         ta.addEventListener('input', function () {
           if (!richPlain(ta)) ta.textContent = '';            // vide → le texte d'aide réapparaît
           store.updateItem(noteId, item.id, { text: richValue(ta) });
+          lastPoint = { itemId: item.id, caret: getCaret(ta).start };
+          if (item.type === 'text') checkboxShortcut(item, ta);
+        });
+        ['keyup', 'mouseup'].forEach(function (ev) {
+          ta.addEventListener(ev, function () { lastPoint = { itemId: item.id, caret: getCaret(ta).start }; });
         });
         ta.addEventListener('keydown', function (e) { onItemKey(e, item, ta); });
         // Coller : texte simple uniquement (pas de mise en forme venue de Word ou d'un mail)
@@ -380,6 +388,21 @@
         e.preventDefault();
         return;
       }
+      // Entrée sur une case vide → fin de la liste : on repasse en texte
+      if (e.key === 'Enter' && !e.shiftKey && item.type === 'task' && richPlain(ta) === '') {
+        e.preventDefault();
+        var iE = indexOfItem(item.id);
+        var nextE = store.getNote(noteId).items[iE + 1];
+        store.deleteItem(noteId, item.id);
+        if (nextE && nextE.type === 'text') {                  // le texte qui suit reprend : ligne vide en tête
+          store.updateItem(noteId, nextE.id, { text: R.concat('\n', nextE.text) });
+          renderItems({ itemId: nextE.id, caret: 0 });
+        } else {
+          var txt = store.addItem(noteId, { type: 'text', text: '' }, iE);
+          renderItems({ itemId: txt.id, caret: 0 });
+        }
+        return;
+      }
       // Entrée dans une tâche → nouvelle tâche en dessous, avec la fin du texte
       if (e.key === 'Enter' && !e.shiftKey && item.type === 'task') {
         e.preventDefault();
@@ -401,8 +424,10 @@
         var prevItem = i0 > 0 ? store.getNote(noteId).items[i0 - 1] : null;
         if (!prevItem || prevItem.type === 'deadline') return;
         e.preventDefault();
-        var caret = R.plain(prevItem.text).length;
-        store.updateItem(noteId, prevItem.id, { text: R.concat(prevItem.text, richValue(ta)) });
+        // Vers un texte : la ligne s'ajoute comme nouvelle ligne du texte (une case redevient du texte)
+        var glue = prevItem.type === 'text' ? '\n' : '';
+        var caret = R.plain(prevItem.text).length + glue.length;
+        store.updateItem(noteId, prevItem.id, { text: R.concat(R.concat(prevItem.text, glue), richValue(ta)) });
         store.deleteItem(noteId, item.id);
         renderItems({ itemId: prevItem.id, caret: caret });
         return;
@@ -438,10 +463,67 @@
 
     // ---------------------------------------------------------- actions
 
+    /** Ligne (et position du curseur) où l'on se trouve, ou null. */
+    function currentPoint() {
+      var ae = document.activeElement;
+      if (ae && ae.classList && ae.classList.contains('editor-item-text') && itemsEl.contains(ae)) {
+        return { itemId: ae.closest('.editor-item').dataset.id, caret: getCaret(ae).start };
+      }
+      return lastPoint;
+    }
+
+    /**
+     * Insère un élément à l'endroit du curseur :
+     *  - curseur dans un texte (et case / tâche à insérer) → le texte est coupé après la ligne
+     *    en cours, l'élément se glisse dessous (sur une ligne vide, il la remplace) ;
+     *  - curseur dans une autre ligne → juste en dessous ;
+     *  - pas de curseur → en fin de carte.
+     */
+    function insertItem(fields, point) {
+      var items = store.getNote(noteId).items;
+      var idx = point ? indexOfItem(point.itemId) : -1;
+      if (idx === -1) return store.addItem(noteId, fields);
+      var host = items[idx];
+      if (host.type === 'text' && fields.type !== 'text') {
+        var cut = R.cutAfterLine(host.text, point.caret);
+        var at = idx + 1;
+        if (cut[0]) store.updateItem(noteId, host.id, { text: cut[0] });
+        else { store.deleteItem(noteId, host.id); at = idx; }
+        var created = store.addItem(noteId, fields, at);
+        if (cut[1]) store.addItem(noteId, { type: 'text', text: cut[1] }, at + 1);
+        return created;
+      }
+      return store.addItem(noteId, fields, idx + 1);
+    }
+
     function addItem(type) {
-      var created = store.addItem(noteId, { type: type, text: '' });
+      var created = insertItem({ type: type, text: '' }, currentPoint());
+      lastPoint = null;
       renderItems({ itemId: created.id });
     }
+
+    /** « [] » ou « [ ] » + espace en début de ligne d'un texte → la ligne devient une case. */
+    function checkboxShortcut(item, ta) {
+      var c = getCaret(ta);
+      if (c.start !== c.end) return;
+      var value = richValue(ta);
+      var L = R.lineAt(value, c.start);
+      if (!/^\[ ?\][ \u00a0]$/.test(L.text.slice(0, c.start - L.start))) return;
+      var before = L.start > 0 ? R.slice(value, 0, L.start - 1) : '';
+      var rest = R.slice(value, c.start, L.end);
+      var after = L.end < L.length ? R.slice(value, L.end + 1) : '';
+      var idx = indexOfItem(item.id), at = idx + 1;
+      if (before) store.updateItem(noteId, item.id, { text: before });
+      else { store.deleteItem(noteId, item.id); at = idx; }
+      var created = store.addItem(noteId, { type: 'task', text: rest }, at);
+      if (after) store.addItem(noteId, { type: 'text', text: after }, at + 1);
+      renderItems({ itemId: created.id, caret: 0 });
+    }
+
+    // Cliquer un bouton d'ajout ne doit pas faire perdre la position du curseur
+    addBar.addEventListener('mousedown', function (e) { if (e.target.closest('button')) e.preventDefault(); });
+    titleInput.addEventListener('focus', function () { lastPoint = null; });
+    tagInput.addEventListener('focus', function () { lastPoint = null; });
 
     btnAddText.addEventListener('click', function () { addItem('text'); });
     btnAddTask.addEventListener('click', function () { addItem('task'); });
@@ -538,6 +620,7 @@
     }
 
     function openDeadlineForm() {
+      pendingPoint = currentPoint();
       dlText.value = '';
       dlDays.value = 5;
       dlError.textContent = '';
@@ -560,7 +643,9 @@
         return;
       }
       try {
-        store.addItem(noteId, { type: 'deadline', text: text, days: dlDays.value });
+        insertItem({ type: 'deadline', text: text, days: dlDays.value }, pendingPoint);
+        pendingPoint = null;
+        lastPoint = null;
       } catch (err) {
         dlError.textContent = err.message;
         dlDays.focus();
@@ -619,6 +704,8 @@
     function open(id, options) {
       if (noteId) close();
       noteId = id;
+      lastPoint = null;
+      pendingPoint = null;
       lastFocus = document.activeElement;
       var note = store.getNote(id);
       titleInput.value = note.title;

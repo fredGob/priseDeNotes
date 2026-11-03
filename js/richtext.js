@@ -147,6 +147,35 @@
     return [serialize(before), serialize(after)];
   }
 
+  /** Portion [a, b[ du texte visible, mise en forme comprise. */
+  function slice(str, a, b) {
+    var head = b === undefined ? str : split(str, b)[0];
+    return split(head, a)[1];
+  }
+
+  /** Début et fin (texte visible) de la ligne qui contient la position `pos`. */
+  function lineAt(str, pos) {
+    var t = plain(str);
+    pos = Math.max(0, Math.min(t.length, pos));
+    var start = t.lastIndexOf('\n', pos - 1) + 1;
+    var end = t.indexOf('\n', pos);
+    if (end === -1) end = t.length;
+    return { start: start, end: end, length: t.length, text: t.slice(start, end) };
+  }
+
+  /**
+   * Où insérer une case à cocher dans un texte, curseur en `pos` :
+   * après la ligne en cours (sans couper de mot). Sur une ligne vide, la case la remplace.
+   * @returns {[string, string]}  [texte au-dessus, texte en dessous] (sans les sauts de ligne de jonction)
+   */
+  function cutAfterLine(str, pos) {
+    var L = lineAt(str, pos);
+    if (L.start === L.end) {                                   // ligne vide : elle disparaît
+      return [L.start > 0 ? slice(str, 0, L.start - 1) : '', L.end < L.length ? slice(str, L.end + 1) : ''];
+    }
+    return [slice(str, 0, L.end), L.end < L.length ? slice(str, L.end + 1) : ''];
+  }
+
   /** Met bout à bout deux chaînes stockées (fusion de lignes). */
   function concat(a, b) {
     return serialize(parse(a).concat(parse(b)));
@@ -200,6 +229,9 @@
     serialize: serialize,
     plain: plain,
     split: split,
+    slice: slice,
+    lineAt: lineAt,
+    cutAfterLine: cutAfterLine,
     concat: concat,
     renderRich: renderRich,
     domToRuns: domToRuns
